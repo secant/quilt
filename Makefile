@@ -29,7 +29,7 @@ install:
 check: format-check
 	go test $(PACKAGES)
 
-COV_SKIP= /minion/pb /minion/pprofile /constants /scripts
+COV_SKIP= /minion/pb /minion/pprofile /constants /scripts /quilt-tester
 
 COV_PKG = $(subst github.com/NetSys/quilt,,$(PACKAGES))
 coverage: $(addsuffix .cov, $(filter-out $(COV_SKIP), $(COV_PKG)))
