@@ -11,8 +11,6 @@ import (
 	"github.com/NetSys/quilt/api"
 	"github.com/NetSys/quilt/cluster"
 	"github.com/NetSys/quilt/db"
-	"github.com/NetSys/quilt/inspect"
-	"github.com/NetSys/quilt/stitch"
 	"github.com/NetSys/quilt/util"
 
 	"google.golang.org/grpc/grpclog"

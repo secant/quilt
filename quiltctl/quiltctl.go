@@ -21,6 +21,7 @@ var commands = map[string]subcommand{
 	"stop":            &stopCommand{},
 	"get":             &getCommand{},
 	"inspect":         &inspectCommand{},
+	"ssh":             &sshCommand{},
 }
 
 func main() {
