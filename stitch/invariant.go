@@ -73,15 +73,16 @@ func reachImpl(graph Graph, inv invariant) bool {
 		}
 	}
 
-	allPassed := true
 	for _, from := range fromNodes {
 		for _, to := range toNodes {
-			pass := contains(from.dfs(), to.Name) == inv.target
-			allPassed = allPassed && pass
+			reachable := contains(from.dfs(), to.Name)
+			if reachable != inv.target {
+				return false
+			}
 		}
 	}
 
-	return allPassed
+	return true
 }
 
 func neighborImpl(graph Graph, inv invariant) bool {
@@ -96,16 +97,16 @@ func neighborImpl(graph Graph, inv invariant) bool {
 		}
 	}
 
-	allPassed := true
 	for _, from := range fromNodes {
 		for _, to := range toNodes {
-			_, ok := from.Connections[to.Name]
-			pass := ok == inv.target
-			allPassed = allPassed && pass
+			_, isNeighbor := from.Connections[to.Name]
+			if isNeighbor != inv.target {
+				return false
+			}
 		}
 	}
 
-	return allPassed
+	return true
 }
 
 func betweenImpl(graph Graph, inv invariant) bool {
@@ -149,7 +150,7 @@ func betweenPathsHelper(betweenNodes []Node, from Node, to Node, target bool) bo
 	pathsAll:
 		for _, path := range paths {
 			for _, between := range betweenNodes {
-				if ok := contains(path, between.Name); ok {
+				if contains(path, between.Name) {
 					break
 				} else {
 					allPaths = false
@@ -164,7 +165,7 @@ func betweenPathsHelper(betweenNodes []Node, from Node, to Node, target bool) bo
 pathsAny:
 	for _, path := range paths {
 		for _, between := range betweenNodes {
-			if ok := contains(path, between.Name); ok {
+			if contains(path, between.Name) {
 				noPaths = false
 				break pathsAny
 			}
