@@ -64,6 +64,7 @@ func convertMachine(pbMachine pb.Machine) db.Machine {
 		CloudID:   pbMachine.CloudID,
 		PublicIP:  pbMachine.PublicIP,
 		PrivateIP: pbMachine.PrivateIP,
+		Connected: pbMachine.Connected,
 	}
 }
 

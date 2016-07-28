@@ -85,6 +85,7 @@ func (s server) QueryMachines(
 			CloudID:   m.CloudID,
 			PublicIP:  m.PublicIP,
 			PrivateIP: m.PrivateIP,
+			Connected: m.Connected,
 		})
 	}
 

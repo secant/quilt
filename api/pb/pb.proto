@@ -19,6 +19,7 @@ message Machine {
 	string CloudID = 8;
 	string PublicIP = 9;
 	string PrivateIP = 10;
+	bool Connected = 11;
 }
 
 message MachineReply {

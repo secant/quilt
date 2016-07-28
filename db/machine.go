@@ -21,6 +21,9 @@ type Machine struct {
 	CloudID   string //Cloud Provider ID
 	PublicIP  string
 	PrivateIP string
+
+	/* Populated by the foreman. */
+	Connected bool // Whether the minion on this machine has connected back.
 }
 
 // InsertMachine creates a new Machine and inserts it into 'db'.
