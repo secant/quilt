@@ -1,29 +1,32 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+
+	"github.com/NetSys/quilt/api"
+	"github.com/NetSys/quilt/db"
 )
 
 var configSpec, configSpecName, namespace, testRoot, specDir, url string
 var l log
 var suitesPassed, suitesFailed []string
-var machines []map[string]string
+var machines []db.Machine
 
 type log struct {
 	passedDir   string
@@ -105,7 +108,7 @@ func (ts *testSuite) run() error {
 
 	l.logInfo(contents, verbMsg)
 	l.logInfo("End "+ts.name+".spec", infoMsg)
-	_, cmd, _ := runSpec(ts.spec)
+	runSpec(ts.spec)
 
 	// Wait for the containers to start
 	l.logInfo("Waiting 5 minutes for containers to start up", infoMsg)
@@ -114,7 +117,7 @@ func (ts *testSuite) run() error {
 	for _, machine := range machines {
 		for _, test := range ts.tests {
 			if strings.Contains(test, "monly") &&
-				machine["role"] != "Master" {
+				machine.Role != "Master" {
 				continue
 			}
 			if err := runTest(test, machine); err != nil {
@@ -134,14 +137,10 @@ func (ts *testSuite) run() error {
 	l.logInfo("Finished Tests", infoMsg)
 	l.logInfo(fmt.Sprintf("Finished Test Suite: %s", ts.name), infoMsg)
 
-	// Kill the current quilt process
-	if err := cmd.Process.Kill(); err != nil {
-		panic(err)
-	}
 	return nil
 }
 
-func runTest(test string, m map[string]string) error {
+func runTest(test string, m db.Machine) error {
 	dir, file := filepath.Split(test)
 	contents, err := fileContents(filepath.Join(dir, "src", file, file) + ".go")
 	if err != nil {
@@ -150,11 +149,11 @@ func runTest(test string, m map[string]string) error {
 		return err
 	}
 
-	testLog := file + "-" + m["publicIP"] + ".txt"
+	testLog := file + "-" + m.PublicIP + ".txt"
 	l.currTest = filepath.Join(l.passedDir, testLog)
 
-	scp(m["publicIP"], test, file)
-	sshCmd := sshGen(m["publicIP"], exec.Command(fmt.Sprintf("./%s", file)))
+	scp(m.PublicIP, test, file)
+	sshCmd := sshGen(m.PublicIP, exec.Command(fmt.Sprintf("./%s", file)))
 	output, err := sshCmd.CombinedOutput()
 	if err != nil || !strings.Contains(string(output), "PASSED") {
 		l.currTest = filepath.Join(l.failedDir, testLog)
@@ -174,73 +173,113 @@ func runTest(test string, m map[string]string) error {
 	return err
 }
 
-func runSpec(spec string) (string, *exec.Cmd, error) {
-	cmd := exec.Command("/quilt", "run", spec)
-	if spec == configSpecName {
-		output, err := runAndWaitFor(cmd, "New connection.", 500)
-		return output, cmd, err
-	}
-	l.logContainer(fmt.Sprintf("Running %v for 60 seconds", cmd.Args), infoMsg)
-	cmd.Start()
-	time.Sleep(60 * time.Second)
-	return "", cmd, nil
+func runSpec(spec string) (string, error) {
+	cmd := exec.Command("/quiltctl", "run", "-stitch", spec)
+	out, err := execCmd(cmd, execOptions{
+		logLineTitle: "RUN",
+	})
+	return out, err
 }
 
-func runAndWaitFor(cmd *exec.Cmd, trigger string, timeout int) (string, error) {
-	l.logContainer(fmt.Sprintf("Running %v until %s", cmd.Args, trigger), infoMsg)
-	output := ""
+func setupInfrastructure() (string, error) {
+	cmd := exec.Command("/quiltctl", "run", "-stitch", configSpecName)
+	out, err := execCmd(cmd, execOptions{
+		logLineTitle: "INFRA",
+	})
+	if err != nil {
+		return out, err
+	}
+
+	allConnected := func() bool {
+		machines, err := queryMachines()
+		if err != nil {
+			return false
+		}
+
+		for _, m := range machines {
+			if !m.Connected {
+				return false
+			}
+		}
+
+		return true
+	}
+	return out, waitFor(allConnected, 500)
+}
+
+// waitFor waits until `pred` is satisfied, or `timeout` seconds have passed.
+func waitFor(pred func() bool, timeout int) error {
+	for range time.Tick(1 * time.Second) {
+		select {
+		case <-time.After(time.Duration(timeout) * time.Second):
+			return errors.New("waitFor timed out")
+		default:
+			if pred() {
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+type execOptions struct {
+	logLineTitle string
+	stopChan     chan struct{}
+}
+
+// execCmd executes the given command, and returns the Stderr output.
+// If `logLineTitle` is non-empty, then each line of the command is logged to container.log.
+// If `stopChan` is closed, then the command is immediately killed.
+func execCmd(cmd *exec.Cmd, opts execOptions) (string, error) {
+	if opts.logLineTitle != "" {
+		l.logContainer(fmt.Sprintf("%s: Starting command: %v", opts.logLineTitle, cmd.Args), infoMsg)
+	}
+
+	// Save the command stderr output to `output` while logging it.
 	pipe, err := cmd.StderrPipe()
 	if err != nil {
 		panic(err)
 	}
 
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
-
-	done := make(chan error, 1)
-	timer := time.After(time.Duration(timeout) * time.Second)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	info := make([]byte, 2048, 2048)
-	infoStr := ""
-	go func() {
-		for range time.Tick(1 * time.Second) {
-			select {
-			case <-done:
-				return
-			default:
-				pipe.Read(info)
-				// Remove trailing null chracters
-				infoStr = string(bytes.Trim(info, "\x00"))
-				if len(infoStr) == 0 {
-					continue
-				}
-				fmt.Println(infoStr)
-				l.logContainer(infoStr, verbMsg)
-				output += infoStr
-				if strings.Contains(infoStr, trigger) {
-					done <- nil
-					return
-				}
+	output := ""
+	go func(reader io.Reader) {
+		outScanner := bufio.NewScanner(pipe)
+		for outScanner.Scan() {
+			outStr := outScanner.Text()
+			output += outStr
+			if opts.logLineTitle != "" {
+				// Remove the newline if there is one because logContainer appends one automatically.
+				logStr := strings.TrimSuffix(outStr, "\n")
+				l.logContainer(opts.logLineTitle+": "+logStr, verbMsg)
 			}
 		}
+	}(pipe)
+
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
+
+	cmdFinished := make(chan error, 1)
+	go func() {
+		cmdFinished <- cmd.Wait()
 	}()
 
 	select {
-	case <-timer:
-		done <- nil
-		if err := cmd.Process.Kill(); err != nil {
-			panic(err)
-		}
-		return output, fmt.Errorf("Quilt timed out while waiting for "+
-			"%s. Output can be found in container.log.", trigger)
-
-	case err := <-done:
-		return output, err
+	case <-cmdFinished:
+		l.logContainer(fmt.Sprintf("%s: Completed command: %v", opts.logLineTitle, cmd.Args), infoMsg)
+		return output, nil
+	case <-opts.stopChan:
+		return output, cmd.Process.Kill()
 	}
+}
+
+func quiltDaemon(stop chan struct{}) {
+	l.logInfo("Starting the Quilt daemon.", infoMsg)
+	cmd := exec.Command("/quilt")
+	execCmd(cmd, execOptions{
+		stopChan:     stop,
+		logLineTitle: "QUILT",
+	})
 }
 
 func generateTestSuites(testDir string) []testSuite {
@@ -300,7 +339,12 @@ func generateTestSuites(testDir string) []testSuite {
 func runTestSuites(suites []testSuite) error {
 	// Do a preliminary quilt stop.
 	l.logInfo(fmt.Sprintf("Preliminary `quilt stop %s`", namespace), infoMsg)
-	stop()
+	_, err := stop()
+	if err != nil {
+		l.logInfo(fmt.Sprintf("Error stopping: %s", err.Error()), verbMsg)
+		return err
+	}
+
 	l.logInfo("Begin "+configSpec, infoMsg)
 	contents, err := fileContents(configSpec)
 	if err != nil {
@@ -309,7 +353,7 @@ func runTestSuites(suites []testSuite) error {
 
 	l.logInfo(contents, verbMsg)
 	l.logInfo("End "+configSpec, infoMsg)
-	output, cmd, err := runSpec(configSpecName)
+	_, err = setupInfrastructure()
 	if err != nil {
 		l.logInfo(fmt.Sprintf("Failed to load spec %s", configSpec), infoMsg)
 		l.logInfo(err.Error(), errMsg)
@@ -317,16 +361,12 @@ func runTestSuites(suites []testSuite) error {
 		return err
 	}
 
-	populateMachines(output)
+	populateMachines()
 	l.logInfo("Booted Quilt", infoMsg)
 	l.logInfo("Machines", infoMsg)
 	l.logInfo(fmt.Sprintf("%v", machines), verbMsg)
 	l.logInfo("Wait 5 minutes for containers to start up", infoMsg)
 	time.Sleep(300 * time.Second)
-	// Kill the current quilt process
-	if err := cmd.Process.Kill(); err != nil {
-		panic(err)
-	}
 	for _, suite := range suites {
 		if err := suite.run(); err != nil {
 			l.logInfo(fmt.Sprintf("Error running test suite %s",
@@ -339,52 +379,28 @@ func runTestSuites(suites []testSuite) error {
 	return nil
 }
 
-func populateMachines(output string) {
-	grabbed := false
-	numM := 0
-	numRe := regexp.MustCompile(`count=(\d)`)
-	numM, _ = strconv.Atoi(numRe.FindStringSubmatch(output)[1])
-	machineRe := regexp.MustCompile(`Machine-(\d+){Role=(.*), ` +
-		"Provider=(.*), Region=(.*), Size=(.*), DiskSize=(.*), CloudID=(.*), " +
-		"PublicIP=(.*), PrivateIP=(.*)}")
-	bootsRe := regexp.MustCompile("Successfully booted machines.")
-	boots := bootsRe.FindAllStringIndex(output, -1)
-	output = output[boots[len(boots)-1][0]:] // Trim to the last successful boot
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "db.Machine") {
-			grabbed = true
-		}
+func queryMachines() ([]db.Machine, error) {
+	c, err := api.NewClient(api.DefaultSocket)
+	if err != nil {
+		return []db.Machine{}, err
+	}
 
-		if grabbed && len(machines) >= numM {
-			break
-		}
+	return c.QueryMachines()
+}
 
-		if grabbed && strings.Contains(line, "Machine-") {
-			if !strings.Contains(line, "PublicIP") {
-				grabbed = false
-				continue
-			}
-			matches := machineRe.FindStringSubmatch(line)
-			m := make(map[string]string)
-			m["name"] = matches[1]
-			m["role"] = matches[2]
-			m["provider"] = matches[3]
-			m["region"] = matches[4]
-			m["cloudID"] = matches[5]
-			m["size"] = matches[6]
-			m["disksize"] = matches[7]
-			m["publicIP"] = matches[8]
-			m["privateIP"] = matches[9]
-			machines = append(machines, m)
-		}
+func populateMachines() {
+	var err error
+	machines, err = queryMachines()
+	if err != nil {
+		l.logInfo(fmt.Sprintf("Unable to query Quilt machines: %s", err.Error()), verbMsg)
+		return
 	}
 }
 
 // Begin Cleanup Functions
 func cleanup() {
 	l.logInfo("Cleaning up first with `quilt stop`.", infoMsg)
-	if err := stop(); err != nil {
+	if _, err := stop(); err != nil {
 		l.logInfo("`quilt stop` errored.", infoMsg)
 		l.logInfo(err.Error(), errMsg)
 		l.logInfo("Now attempting to use killAWS.", infoMsg)
@@ -396,18 +412,23 @@ func cleanup() {
 	l.logInfo("Done cleaning up.", infoMsg)
 }
 
-func stop() error {
-	cmd := exec.Command("/quilt", "stop", namespace)
-	_, err := runAndWaitFor(cmd, "Successfully halted machines.", 120)
-	if err == nil {
-		if err := cmd.Process.Kill(); err != nil {
-			panic(err)
-		}
+func stop() (string, error) {
+	cmd := exec.Command("/quiltctl", "stop", "-namespace", namespace)
+
+	out, err := execCmd(cmd, execOptions{
+		logLineTitle: "STOP",
+	})
+	if err != nil {
+		return out, err
 	}
-	return err
+
+	stopped := func() bool {
+		return len(getAWSInstances()) == 0
+	}
+	return out, waitFor(stopped, 120)
 }
 
-func killAWS() error {
+func getAWSInstances() []*string {
 	// Find all of the instances under the namespace
 	svc := ec2.New(session.New(), &aws.Config{Region: aws.String("us-west-1")})
 	params := &ec2.DescribeInstancesInput{
@@ -418,11 +439,12 @@ func killAWS() error {
 	}
 	resp, err := svc.DescribeInstances(params)
 	if err != nil {
-		return err
+		l.logInfo(fmt.Sprintf("Unable to get AWS instances: %s", err.Error()), verbMsg)
+		return []*string{}
 	}
 
 	if len(resp.Reservations) == 0 {
-		return nil
+		return []*string{}
 	}
 
 	// Build the list of InstanceIds
@@ -432,11 +454,17 @@ func killAWS() error {
 			ids = append(ids, inst.InstanceId)
 		}
 	}
+	return ids
+}
+
+func killAWS() error {
+	ids := getAWSInstances()
 
 	toDelete := &ec2.TerminateInstancesInput{
 		InstanceIds: ids,
 	}
 
+	svc := ec2.New(session.New(), &aws.Config{Region: aws.String("us-west-1")})
 	req, _ := svc.TerminateInstancesRequest(toDelete)
 	return req.Send()
 }
@@ -546,8 +574,11 @@ func slack() {
 func downloadSpecs(importPath string) {
 	quiltPath := os.Getenv("QUILT_PATH")
 	l.logInfo(fmt.Sprintf("Downloading %s into %s", importPath, quiltPath), infoMsg)
-	cmd := exec.Command("/quilt", "get", importPath)
-	if err := cmd.Run(); err != nil {
+	cmd := exec.Command("/quiltctl", "get", "-importPath", importPath)
+	_, err := execCmd(cmd, execOptions{
+		logLineTitle: "GET",
+	})
+	if err != nil {
 		l.logInfo(fmt.Sprintf("Could not download %s", importPath), infoMsg)
 		l.logInfo(err.Error(), errMsg)
 		os.Exit(1)
@@ -568,9 +599,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	os.Setenv("PATH", os.Getenv("PATH")+":"+filepath.Join(testRoot, "bin"))
-	fmt.Println("PATH:", os.Getenv("PATH"))
 
 	// Add the web directory for logs
 	webDir := filepath.Join(webRoot, time.Now().Format("02-01-2006_15h04m05s"))
@@ -604,10 +632,15 @@ func main() {
 		panic(err)
 	}
 
+	daemon := make(chan struct{})
+	go quiltDaemon(daemon)
+
 	// Get our specs
 	os.Setenv("QUILT_PATH", "/.quilt")
 	downloadSpecs("github.com/NetSys/quilt")
 	generateNamespace()
 	suites := generateTestSuites(testDir)
 	runTestSuites(suites)
+
+	close(daemon)
 }
