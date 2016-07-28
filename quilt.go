@@ -12,6 +12,7 @@ import (
 	"text/scanner"
 	"time"
 
+	"github.com/NetSys/quilt/api"
 	"github.com/NetSys/quilt/cluster"
 	"github.com/NetSys/quilt/db"
 	"github.com/NetSys/quilt/engine"
@@ -47,6 +48,8 @@ func main() {
 
 	var logLevel = flag.String("log-level", "info", "level to set logger to")
 	flag.StringVar(logLevel, "l", "info", "level to set logger to")
+	var lAddr = flag.String("H", api.DefaultSocket,
+		"Socket to listen for API requests on.")
 	flag.Parse()
 
 	level, err := parseLogLevel(*logLevel)
@@ -75,6 +78,7 @@ func main() {
 		usage()
 	}
 
+	go api.RunServer(conn, *lAddr)
 	cluster.Run(conn)
 }
 

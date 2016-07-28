@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+service API {
+    rpc QueryMachines(DBQuery) returns(MachineReply) {}
+    rpc QueryContainers(DBQuery) returns(ContainerReply) {}
+}
+
+message DBQuery {
+}
+
+message Machine {
+    int32 ID = 1;
+	string Role = 2;
+	string Provider = 3;
+	string Region = 4;
+	string Size = 5;
+	int32 DiskSize = 6;
+	repeated string SSHKeys = 7;
+	string CloudID = 8;
+	string PublicIP = 9;
+	string PrivateIP = 10;
+}
+
+message MachineReply {
+    repeated Machine Machines = 3;
+}
+
+message Container {
+    int32 ID = 1;
+	string DockerID = 4;
+	string Image = 5;
+	repeated string Command = 6;
+	repeated string Labels = 7;
+}
+
+message ContainerReply {
+    repeated Container Containers = 3;
+}

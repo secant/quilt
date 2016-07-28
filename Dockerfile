@@ -18,6 +18,7 @@ RUN VER=1.6.2 \
 && go test github.com/NetSys/quilt github.com/NetSys/quilt/minion \
 && go install github.com/NetSys/quilt \
 && go install github.com/NetSys/quilt/minion \
+&& go install github.com/NetSys/quilt/quiltctl \
 && cp $GOPATH/bin/* /\
 && rm -rf /tmp/build \
 && apk del .build_deps

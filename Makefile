@@ -7,17 +7,22 @@ LINE_LENGTH_EXCLUDE=./constants/awsConstants.go \
 		    ./cluster/provider/cloud_config.go \
 		    ./minion/network/link_test.go \
 		    ./minion/pb/pb.pb.go \
+		    ./api/pb/pb.pb.go
 
 REPO = quilt
 DOCKER = docker
 SHELL := /bin/bash
 
 .PHONY: all
-all: quilt minion
+all: quilt quiltctl minion
 
 .PHONY: quilt
 quilt:
 	cd -P . && go build .
+
+.PHONY: quiltctl
+quiltctl:
+	cd -P . && go build -o ./quiltctl/quiltctl ./quiltctl
 
 .PHONY: minion
 minion:
@@ -29,7 +34,7 @@ install:
 check: format-check
 	go test $(PACKAGES)
 
-COV_SKIP= /minion/pb /minion/pprofile /constants /scripts /quilt-tester \
+COV_SKIP= /minion/pb /minion/pprofile /api/pb /constants /scripts /quilt-tester \
 		  /quilt-tester/tests/basic/src/docker_test \
 		  /quilt-tester/tests/basic/src/log_test \
 		  /quilt-tester/tests/spark/src/spark_test_monly
@@ -59,7 +64,7 @@ format-check:
 lint: format
 	cd -P . && go vet $(PACKAGES)
 	for package in $(PACKAGES) ; do \
-		if [[ $$package != *minion/pb* ]] ; then \
+		if [[ $$package != *minion/pb* && $$package != *api/pb* ]] ; then \
 			golint -min_confidence .25 $$package ; \
 		fi \
 	done

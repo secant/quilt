@@ -2,8 +2,10 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/NetSys/quilt/api"
 	"github.com/NetSys/quilt/db"
 	"github.com/NetSys/quilt/minion/docker"
 	"github.com/NetSys/quilt/minion/etcd"
@@ -31,6 +33,8 @@ func main() {
 	go scheduler.Run(conn)
 	go network.Run(conn, dk)
 	go etcd.Run(conn)
+
+	go api.RunServer(conn, fmt.Sprintf("tcp://0.0.0.0:%d", api.DefaultRemotePort))
 
 	for range conn.Trigger(db.MinionTable).C {
 		conn.Transact(func(view db.Database) error {
