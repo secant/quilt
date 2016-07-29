@@ -91,6 +91,6 @@ func checkSpec(file string, info os.FileInfo, err error) error {
 			Filename: file,
 		},
 	}
-	_, err = New(*sc.Init(bufio.NewReader(f)), GetQuiltPath(), true)
+	_, err = Compile(*sc.Init(bufio.NewReader(f)), GetQuiltPath(), true)
 	return err
 }

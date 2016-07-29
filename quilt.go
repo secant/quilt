@@ -1,21 +1,16 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	l_mod "log"
 	"os"
-	"path/filepath"
 	"strings"
-	"text/scanner"
-	"time"
 
 	"github.com/NetSys/quilt/api"
 	"github.com/NetSys/quilt/cluster"
 	"github.com/NetSys/quilt/db"
-	"github.com/NetSys/quilt/engine"
 	"github.com/NetSys/quilt/inspect"
 	"github.com/NetSys/quilt/stitch"
 	"github.com/NetSys/quilt/util"
@@ -34,8 +29,7 @@ func main() {
 	log.SetFormatter(util.Formatter{})
 
 	flag.Usage = func() {
-		fmt.Println("Usage: quilt [inspect <stitch> | run <stitch>" +
-			" | stop <namespace> | get <import_path>]" +
+		fmt.Println("Usage: quilt [inspect <stitch> | get <import_path>]" +
 			" [-log-level=<level> | -l=<level>]")
 		fmt.Println("\nWhen provided a stitch, quilt takes responsibility\n" +
 			"for deploying it as specified.  Alternatively, quilt may be\n" +
@@ -60,22 +54,13 @@ func main() {
 	log.SetLevel(level)
 
 	conn := db.New()
-	if len(flag.Args()) != 2 {
-		usage()
-	}
 
 	switch flag.Arg(0) {
-	case "run":
-		go configLoop(conn, flag.Arg(1))
-	case "stop":
-		stop(conn, flag.Arg(1))
 	case "get":
 		getSpec(flag.Arg(1))
 	case "inspect":
 		inspect.Main(flag.Args())
 		return
-	default:
-		usage()
 	}
 
 	go api.RunServer(conn, *lAddr)
@@ -90,69 +75,9 @@ func getSpec(importPath string) {
 	os.Exit(0)
 }
 
-func stop(conn db.Conn, namespace string) {
-	specStr := "(define AdminACL (list))"
-	if namespace != "" {
-		specStr += fmt.Sprintf(` (define Namespace "%s")`, namespace)
-	}
-
-	var sc scanner.Scanner
-	spec, err := stitch.New(*sc.Init(strings.NewReader(specStr)), "", false)
-	if err != nil {
-		panic(err)
-	}
-
-	err = engine.UpdatePolicy(conn, spec)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func configLoop(conn db.Conn, stitchPath string) {
-	tick := time.Tick(5 * time.Second)
-	for {
-		if err := updateConfig(conn, stitchPath); err != nil {
-			log.WithError(err).Warn("Failed to update configuration.")
-		}
-		<-tick
-	}
-}
-
 func usage() {
 	flag.Usage()
 	os.Exit(1)
-}
-
-const quiltPath = "QUILT_PATH"
-
-func updateConfig(conn db.Conn, configPath string) error {
-	pathStr, _ := os.LookupEnv(quiltPath)
-	if pathStr == "" {
-		pathStr = stitch.GetQuiltPath()
-	}
-
-	f, err := util.Open(configPath)
-	if err != nil {
-		f, err = util.Open(filepath.Join(pathStr, configPath))
-		if err != nil {
-			return err
-		}
-	}
-
-	defer f.Close()
-
-	sc := scanner.Scanner{
-		Position: scanner.Position{
-			Filename: configPath,
-		},
-	}
-
-	spec, err := stitch.New(*sc.Init(bufio.NewReader(f)), pathStr, false)
-	if err != nil {
-		return err
-	}
-
-	return engine.UpdatePolicy(conn, spec)
 }
 
 // parseLogLevel returns the log.Level type corresponding to the given string

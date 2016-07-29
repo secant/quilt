@@ -93,3 +93,12 @@ func convertContainer(pbContainer pb.Container) db.Container {
 		Labels:   pbContainer.Labels,
 	}
 }
+
+// RunStitch makes a request to the Quilt daemon to execute the given stitch.
+func (c Client) RunStitch(stitch string) error {
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	if _, err := c.pbClient.Run(ctx, &pb.RunRequest{Stitch: stitch}); err != nil {
+		return err
+	}
+	return nil
+}

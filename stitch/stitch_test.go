@@ -1368,29 +1368,27 @@ func TestErrorMetadata(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	var sc scanner.Scanner
-	stitch, err := New(*sc.Init(strings.NewReader("(")), "", false)
-	if err == nil {
-		t.Error("Expected error")
-	}
+	parseErr(t, "(", "1: unbalanced Parenthesis")
 
-	stitch, err = New(*sc.Init(strings.NewReader("(+ a a)")), "", false)
-	if err == nil {
-		t.Error("Expected runtime error")
-	}
+	runtimeErr(t, "(+ a a)", "1: unassigned variable: a")
 
-	stitch, err = New(*sc.Init(strings.NewReader(`
+	ctx := parseTest(t, `
 		(define a (+ 1 2))
 		(define b "This is b")
 		(define c (list "This" "is" "b"))
 		(define d (list "1" 2 "3"))
 		(define e 1.5)
 		(docker b)
-		(docker b)`)), "", false)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+		(docker b)`,
+		`(list)
+		 (list)
+		 (list)
+		 (list)
+		 (list)
+		 (docker "This is b")
+		 (docker "This is b")`)
+
+	stitch := Stitch{"", ctx}
 
 	if val, _ := stitch.QueryFloat("e"); val != 1.5 {
 		t.Error(val, "!=", 1.5)

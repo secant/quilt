@@ -2,8 +2,6 @@ package main
 
 import (
 	"sort"
-	"strings"
-	"text/scanner"
 
 	"github.com/NetSys/quilt/db"
 	"github.com/NetSys/quilt/join"
@@ -14,8 +12,7 @@ import (
 )
 
 func updatePolicy(view db.Database, role db.Role, spec string) {
-	var sc scanner.Scanner
-	compiled, err := stitch.New(*sc.Init(strings.NewReader(spec)), "", false)
+	compiled, err := stitch.New(spec)
 	if err != nil {
 		log.WithError(err).Warn("Invalid spec.")
 		return

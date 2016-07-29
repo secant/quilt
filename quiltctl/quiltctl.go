@@ -17,6 +17,8 @@ type subcommand interface {
 var commands = map[string]subcommand{
 	"queryMachines":   &machineCommand{},
 	"queryContainers": &containerCommand{},
+	"run":             &runCommand{},
+	"stop":            &stopCommand{},
 }
 
 func main() {

@@ -10,6 +10,8 @@ import (
 	"github.com/NetSys/quilt/api/pb"
 	"github.com/NetSys/quilt/api/util"
 	"github.com/NetSys/quilt/db"
+	"github.com/NetSys/quilt/engine"
+	"github.com/NetSys/quilt/stitch"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -106,4 +108,22 @@ func (s server) QueryContainers(
 		})
 	}
 	return &resp, nil
+}
+
+func (s server) Run(cts context.Context, runReq *pb.RunRequest) (*pb.RunResult, error) {
+	stitch, err := stitch.New(runReq.Stitch)
+	if err != nil {
+		return &pb.RunResult{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+	err = engine.UpdatePolicy(s.dbConn, stitch)
+	if err != nil {
+		return &pb.RunResult{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+	return &pb.RunResult{Success: true}, nil
 }

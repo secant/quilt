@@ -8,7 +8,16 @@ import (
 
 func initSpec(src string) (Stitch, error) {
 	var sc scanner.Scanner
-	spec, err := New(*sc.Init(strings.NewReader(src)), "../specs", false)
+	compiled, err := Compile(*sc.Init(strings.NewReader(src)), "../specs", false)
+	if err != nil {
+		return Stitch{}, err
+	}
+
+	spec, err := New(compiled)
+	if err != nil {
+		return Stitch{}, err
+	}
+
 	return spec, err
 }
 

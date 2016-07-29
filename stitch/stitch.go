@@ -2,6 +2,7 @@ package stitch
 
 import (
 	"fmt"
+	"strings"
 	"text/scanner"
 
 	log "github.com/Sirupsen/logrus"
@@ -77,15 +78,27 @@ func (stitchr Range) Accepts(x float64) bool {
 	return stitchr.Min <= x && (stitchr.Max == 0 || x <= stitchr.Max)
 }
 
-// New parses and executes a stitch (in text form), and returns an abstract Stitch
-// handle.
-func New(sc scanner.Scanner, path string, download bool) (Stitch, error) {
+// Compile ___ XXX
+// Think about what should be a compile-time error, and what should be runtime.
+func Compile(sc scanner.Scanner, path string, download bool) (string, error) {
 	parsed, err := parse(sc)
 	if err != nil {
-		return Stitch{}, err
+		return "", err
 	}
 
 	parsed, err = resolveImports(parsed, path, download)
+	if err != nil {
+		return "", err
+	}
+
+	return astRoot(parsed).String(), nil
+}
+
+// New parses and executes a stitch (in text form), and returns an abstract Dsl handle.
+func New(specStr string) (Stitch, error) {
+	var sc scanner.Scanner
+	sc.Init(strings.NewReader(specStr))
+	parsed, err := parse(sc)
 	if err != nil {
 		return Stitch{}, err
 	}

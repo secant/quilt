@@ -3,6 +3,7 @@ syntax = "proto3";
 service API {
     rpc QueryMachines(DBQuery) returns(MachineReply) {}
     rpc QueryContainers(DBQuery) returns(ContainerReply) {}
+    rpc Run(RunRequest) returns(RunResult) {}
 }
 
 message DBQuery {
@@ -36,4 +37,13 @@ message Container {
 
 message ContainerReply {
     repeated Container Containers = 3;
+}
+
+message RunRequest {
+    string Stitch = 1;
+}
+
+message RunResult {
+    bool Success = 1;
+    string Error = 2;
 }
