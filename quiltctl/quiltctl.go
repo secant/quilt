@@ -19,6 +19,8 @@ var commands = map[string]subcommand{
 	"queryContainers": &containerCommand{},
 	"run":             &runCommand{},
 	"stop":            &stopCommand{},
+	"get":             &getCommand{},
+	"inspect":         &inspectCommand{},
 }
 
 func main() {

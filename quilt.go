@@ -55,24 +55,8 @@ func main() {
 
 	conn := db.New()
 
-	switch flag.Arg(0) {
-	case "get":
-		getSpec(flag.Arg(1))
-	case "inspect":
-		inspect.Main(flag.Args())
-		return
-	}
-
 	go api.RunServer(conn, *lAddr)
 	cluster.Run(conn)
-}
-
-func getSpec(importPath string) {
-	if err := stitch.GetSpec(importPath); err != nil {
-		log.Error(err)
-	}
-
-	os.Exit(0)
 }
 
 func usage() {
