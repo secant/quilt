@@ -316,6 +316,38 @@
 			"Rev": "526cf9b2b38d2f3675e34e473f2cef38e1e0565b"
 		},
 		{
+			"ImportPath": "github.com/robertkrimen/otto",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/ast",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/dbg",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/file",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/parser",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/registry",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/token",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
+			"ImportPath": "github.com/robertkrimen/otto/underscore",
+			"Rev": "7d9cbc2befca39869eb0e5bcb0f44c0692c2f8ff"
+		},
+		{
 			"ImportPath": "github.com/satori/go.uuid",
 			"Comment": "v1.0.0",
 			"Rev": "f9ab0dce87d815821e221626b772e3475a0d2749"
@@ -517,6 +549,16 @@
 			"ImportPath": "google.golang.org/grpc/transport",
 			"Comment": "v1.0.0-151-g35896af",
 			"Rev": "35896af9ad39c1fb1b1cd925fe3621be361e3d81"
+		},
+		{
+			"ImportPath": "gopkg.in/sourcemap.v1",
+			"Comment": "v1.0.2",
+			"Rev": "8cd1e2e0ddc78dcb4511bcb184d23171bed15c67"
+		},
+		{
+			"ImportPath": "gopkg.in/sourcemap.v1/base64vlq",
+			"Comment": "v1.0.2",
+			"Rev": "8cd1e2e0ddc78dcb4511bcb184d23171bed15c67"
 		}
 	]
 }

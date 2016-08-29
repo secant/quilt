@@ -43,7 +43,7 @@ func updateTxn(view db.Database, stitch stitch.Stitch) error {
 }
 
 func clusterTxn(view db.Database, stitch stitch.Stitch) error {
-	namespace := stitch.QueryString("Namespace")
+	namespace := stitch.QueryNamespace()
 	if namespace == "" {
 		namespace = "default-namespace"
 		msg := "policy did not specify 'Namespace', defaulting to '%s'"
@@ -57,7 +57,7 @@ func clusterTxn(view db.Database, stitch stitch.Stitch) error {
 
 	cluster.Namespace = namespace
 	cluster.Spec = stitch.String()
-	cluster.AdminACLs = resolveACLs(stitch.QueryStrSlice("AdminACL"))
+	cluster.AdminACLs = resolveACLs(stitch.QueryAdminACL())
 	view.Commit(cluster)
 	return nil
 }
@@ -124,7 +124,7 @@ func toDBMachine(machines []stitch.Machine, maxPrice float64) []db.Machine {
 
 func machineTxn(view db.Database, stitch stitch.Stitch) error {
 	// XXX: How best to deal with machines that don't specify enough information?
-	maxPrice, _ := stitch.QueryFloat("MaxPrice")
+	maxPrice := stitch.QueryMaxPrice()
 	stitchMachines := toDBMachine(stitch.QueryMachines(), maxPrice)
 
 	dbMachines := view.SelectFromMachine(nil)

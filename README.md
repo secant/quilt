@@ -40,8 +40,10 @@ To declare 3 docker containers with the latest Ubuntu image and a postgres
 database, one would use the following stitch:
 
 <!-- BEGIN CODE -->
-    (label "containers" (makeList 3 (docker "ubuntu")))
-    (label "database" (docker "postgres"))
+    var containers = new Label("containers", new Container("ubuntu").replicate(3));
+    var database = new Label("database", [new Container("postgres")]);
+
+    deployment.deploy(containers).deploy(database);
 <!-- END CODE -->
 
 This will produce a simple network:
@@ -54,28 +56,28 @@ some network connections.
 
 <!-- BEGIN CODE -->
     // Create 5 Apache containers, and label them "webTier"
-    (label "webTier" (makeList 5 (docker "httpd")))
+    var webTier = new Label("webTier", new Container("httpd").replicate(5));
 
     // Create 2 Spark containers, and label them "batch"
-    (label "batch" (makeList 2 (docker "spark")))
+    var batch = new Label("batch", new Container("spark").replicate(2));
 
     // Create a Postgres container, and label it "database"
-    (label "database" (docker "postgres"))
-
-    // A deployment consists of a database, a webTier, and a batch processing
-    (label "deployment" (list "database" "webTier" "batch"))
+    var database = new Label("database", [new Container("postgres")]);
 
     // Allow the public internet to connect to the webTier over port 80
-    (connect 80 "public" "webTier")
+    webTier.connectFromPublic(80);
 
     // Allow the webTier to connect to the database on port 1433
-    (connect 1433 "webTier" "database")
+    webTier.connect(1433, database);
 
-    // Allow the batch processor to connect to the database on and the webTier via SSH
-    (connect 22 "batch" (list "webTier" "database"))
+    // Allow the batch processor to connect to the database and webTier via SSH
+    batch.connect(22, webTier).connect(22, database);
 
     // Allow all containers in the webTier to connect to each other on any port
-    (connect (list 0 65535) "webTier" "webTier")
+    webTier.connect(new PortRange(0, 65535), webTier);
+
+    // Deploy our containers.
+    deployment.deploy([webTier, batch, database]);
 <!-- END CODE -->
 
 After the above commands, our application looks a lot more interesting:

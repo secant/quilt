@@ -1,41 +1,28 @@
 package stitch
 
 import (
-	"strings"
 	"testing"
-	"text/scanner"
 )
 
 func initSpec(src string) (Stitch, error) {
-	var sc scanner.Scanner
-	compiled, err := Compile(*sc.Init(strings.NewReader(src)),
-		ImportGetter{
-			Path: "../specs",
-		})
-	if err != nil {
-		return Stitch{}, err
-	}
-
-	spec, err := New(compiled)
-	if err != nil {
-		return Stitch{}, err
-	}
-
-	return spec, err
+	return New(src, ImportGetter{
+		Path: "../specs",
+	})
 }
 
 func TestReach(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	a.connect(new Port(22), b);
+	b.connect(new Port(22), c);
 
-(connect 22 "a" "b")
-(connect 22 "b" "c")
+	deployment.deploy([a, b, c]);
 
-(invariant reach true "a" "c")
-(invariant reach false "c" "a")
-(invariant between true "a" "c" "b")
-(invariant between false "c" "a" "b")`
+	deployment.assert(a.canReach(c), true);
+	deployment.assert(c.canReach(a), false);
+	deployment.assert(c.between(a, b), true);
+	deployment.assert(a.between(c, b), false);`
 	_, err := initSpec(stc)
 	if err != nil {
 		t.Error(err)
@@ -43,18 +30,19 @@ func TestReach(t *testing.T) {
 }
 
 func TestReachPublic(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	a.connectToPublic(22);
+	b.connectFromPublic(22);
+	b.connect(22, c);
 
-(connect 22 "a" "public")
-(connect 22 "public" "b")
-(connect 22 "b" "c")
+	deployment.deploy([a, b, c]);
 
-(invariant reach true "public" "b")
-(invariant reach true "public" "c")
-(invariant reach false "public" "a")
-(invariant reach false "b" "public")`
+	deployment.assert(b.canReachFromPublic(), true);
+	deployment.assert(c.canReachFromPublic(), true);
+	deployment.assert(a.canReachFromPublic(), false);
+	deployment.assert(b.canReachPublic(), false);`
 	_, err := initSpec(stc)
 	if err != nil {
 		t.Error(err)
@@ -62,15 +50,16 @@ func TestReachPublic(t *testing.T) {
 }
 
 func TestNeighbor(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	a.connect(new Port(22), b);
+	b.connect(new Port(22), c);
 
-(connect 22 "a" "b")
-(connect 22 "b" "c")
+	deployment.deploy([a, b, c]);
 
-(invariant reachDirect false "a" "c")
-(invariant reachDirect true "b" "c")`
+	deployment.assert(a.neighborOf(c), false);
+	deployment.assert(b.neighborOf(c), true);`
 	_, err := initSpec(stc)
 	if err != nil {
 		t.Error(err)
@@ -78,16 +67,16 @@ func TestNeighbor(t *testing.T) {
 }
 
 func TestAnnotation(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	a.connect(new Port(22), b);
+	b.connect(new Port(22), c);
 
-(connect 22 "a" "b")
-(connect 22 "b" "c")
+	b.annotate("ACL");
 
-(annotate ACL "b")
-(invariant reachACL false "a" "c")
-`
+	deployment.assert(a.canReachACL(c), false);`
+
 	_, err := initSpec(stc)
 	if err != nil {
 		t.Error(err)
@@ -95,15 +84,16 @@ func TestAnnotation(t *testing.T) {
 }
 
 func TestFail(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	a.connect(new Port(22), b);
+	b.connect(new Port(22), c);
 
-(connect 22 "a" "b")
-(connect 22 "b" "c")
+	deployment.deploy([a, b, c]);
 
-(invariant reach true "a" "c")
-(invariant reach true "c" "a")`
+	deployment.assert(a.canReach(c), true);
+	deployment.assert(c.canReach(a), true);`
 	expectedFailure := `invariant failed: reach true "c" "a"`
 	if _, err := initSpec(stc); err == nil {
 		t.Errorf("got no error, expected %s", expectedFailure)
@@ -113,20 +103,22 @@ func TestFail(t *testing.T) {
 }
 
 func TestBetween(t *testing.T) {
-	stc := `(label "a" (docker "ubuntu"))
-(label "b" (docker "ubuntu"))
-(label "c" (docker "ubuntu"))
-(label "d" (docker "ubuntu"))
-(label "e" (docker "ubuntu"))
+	stc := `var a = new Label("a", [new Container("ubuntu")]);
+	var b = new Label("b", [new Container("ubuntu")]);
+	var c = new Label("c", [new Container("ubuntu")]);
+	var d = new Label("d", [new Container("ubuntu")]);
+	var e = new Label("e", [new Container("ubuntu")]);
 
-(connect 22 "a" "b")
-(connect 22 "a" "c")
-(connect 22 "b" "d")
-(connect 22 "c" "d")
-(connect 22 "d" "e")
+	a.connect(new Port(22), b);
+	a.connect(new Port(22), c);
+	b.connect(new Port(22), d);
+	c.connect(new Port(22), d);
+	d.connect(new Port(22), e);
 
-(invariant reach true "a" "e")
-(invariant between true "a" "e" "d")`
+	deployment.deploy([a, b, c, d, e]);
+
+	deployment.assert(a.canReach(e), true)
+	deployment.assert(e.between(a, d), true)`
 	_, err := initSpec(stc)
 	if err != nil {
 		t.Error(err)

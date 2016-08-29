@@ -3,9 +3,7 @@ package docs
 import (
 	"bufio"
 	"errors"
-	"strings"
 	"testing"
-	"text/scanner"
 
 	"github.com/NetSys/quilt/stitch"
 	"github.com/NetSys/quilt/util"
@@ -89,10 +87,7 @@ func TestReadme(t *testing.T) {
 }
 
 func checkConfig(content string) error {
-	reader := strings.NewReader(content)
-
-	var sc scanner.Scanner
-	_, err := stitch.Compile(*sc.Init(reader), stitch.DefaultImportGetter)
+	_, err := stitch.New(content, stitch.DefaultImportGetter)
 	if err != nil {
 		return err
 	}

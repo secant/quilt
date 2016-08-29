@@ -34,23 +34,21 @@ func (invErr invariantError) Error() string {
 	return fmt.Sprintf("invariant failed: %s", invErr.failer)
 }
 
+// Even though `invariant` isn't exported, we have to export its fields so that
+// we can unmarshal it with `encoding/json`.
 type invariant struct {
-	form   invariantType
-	target bool     // Desired answer to invariant question.
-	nodes  []string // Nodes the invariant operates on.
+	Form   invariantType
+	Target bool     // Desired answer to invariant question.
+	Nodes  []string // Nodes the invariant operates on.
 }
 
 func (inv invariant) String() string {
-	tags := []string{string(inv.form)}
-	tags = append(tags, fmt.Sprintf("%t", inv.target))
-	for _, node := range inv.nodes {
+	tags := []string{string(inv.Form)}
+	tags = append(tags, fmt.Sprintf("%t", inv.Target))
+	for _, node := range inv.Nodes {
 		tags = append(tags, fmt.Sprintf("%q", node))
 	}
 	return strings.Join(tags, " ")
-}
-
-func (inv invariant) eval(ctx *evalCtx) (ast, error) {
-	return inv, nil
 }
 
 var formImpls map[invariantType]func(graph Graph, inv invariant) bool
@@ -67,7 +65,7 @@ func init() {
 
 func checkInvariants(graph Graph, invs []invariant) error {
 	for _, asrt := range invs {
-		if val := formImpls[asrt.form](graph, asrt); !val {
+		if val := formImpls[asrt.Form](graph, asrt); !val {
 			return invariantError{asrt}
 		}
 	}
@@ -79,10 +77,10 @@ func reachImpl(graph Graph, inv invariant) bool {
 	var fromNodes []Node
 	var toNodes []Node
 	for _, node := range graph.Nodes {
-		if node.Label == inv.nodes[0] {
+		if node.Label == inv.Nodes[0] {
 			fromNodes = append(fromNodes, node)
 		}
-		if node.Label == inv.nodes[1] {
+		if node.Label == inv.Nodes[1] {
 			toNodes = append(toNodes, node)
 		}
 	}
@@ -90,7 +88,7 @@ func reachImpl(graph Graph, inv invariant) bool {
 	for _, from := range fromNodes {
 		for _, to := range toNodes {
 			reachable := contains(from.dfs(), to.Name)
-			if reachable != inv.target {
+			if reachable != inv.Target {
 				return false
 			}
 		}
@@ -103,10 +101,10 @@ func neighborImpl(graph Graph, inv invariant) bool {
 	var fromNodes []Node
 	var toNodes []Node
 	for _, node := range graph.Nodes {
-		if node.Label == inv.nodes[0] {
+		if node.Label == inv.Nodes[0] {
 			fromNodes = append(fromNodes, node)
 		}
-		if node.Label == inv.nodes[1] {
+		if node.Label == inv.Nodes[1] {
 			toNodes = append(toNodes, node)
 		}
 	}
@@ -114,7 +112,7 @@ func neighborImpl(graph Graph, inv invariant) bool {
 	for _, from := range fromNodes {
 		for _, to := range toNodes {
 			_, isNeighbor := from.Connections[to.Name]
-			if isNeighbor != inv.target {
+			if isNeighbor != inv.Target {
 				return false
 			}
 		}
@@ -127,10 +125,10 @@ func reachACLImpl(graph Graph, inv invariant) bool {
 	var fromNodes []Node
 	var toNodes []Node
 	for _, node := range graph.Nodes {
-		if node.Label == inv.nodes[0] {
+		if node.Label == inv.Nodes[0] {
 			fromNodes = append(fromNodes, node)
 		}
-		if node.Label == inv.nodes[1] {
+		if node.Label == inv.Nodes[1] {
 			toNodes = append(toNodes, node)
 		}
 	}
@@ -138,7 +136,7 @@ func reachACLImpl(graph Graph, inv invariant) bool {
 	for _, from := range fromNodes {
 		for _, to := range toNodes {
 			if reachable := contains(from.dfsWithACL(),
-				to.Name); reachable != inv.target {
+				to.Name); reachable != inv.Target {
 				return false
 			}
 		}
@@ -153,11 +151,11 @@ func betweenImpl(graph Graph, inv invariant) bool {
 	var betweenNodes []Node
 	for _, node := range graph.Nodes {
 		switch node.Label {
-		case inv.nodes[0]:
+		case inv.Nodes[0]:
 			fromNodes = append(fromNodes, node)
-		case inv.nodes[1]:
+		case inv.Nodes[1]:
 			toNodes = append(toNodes, node)
-		case inv.nodes[2]:
+		case inv.Nodes[2]:
 			betweenNodes = append(betweenNodes, node)
 		}
 	}
@@ -169,7 +167,7 @@ func betweenImpl(graph Graph, inv invariant) bool {
 				betweenNodes,
 				from,
 				to,
-				inv.target,
+				inv.Target,
 			)
 		}
 	}
