@@ -29,17 +29,20 @@ var DefaultImportGetter = ImportGetter{
 	Path: GetQuiltPath(),
 }
 
+// QuiltPathKey is the environment variable key we use to lookup the Quilt path.
+const QuiltPathKey = "QUILT_PATH"
+
 // GetQuiltPath returns the user-defined QUILT_PATH, or the default absolute QUILT_PATH,
 // which is ~/.quilt if the user did not specify a QUILT_PATH.
 func GetQuiltPath() string {
-	if quiltPath := os.Getenv("QUILT_PATH"); quiltPath != "" {
+	if quiltPath := os.Getenv(QuiltPathKey); quiltPath != "" {
 		return quiltPath
 	}
 
 	dir, err := homedir.Dir()
 	if err != nil {
-		log.WithError(err).Fatal("Failed to get user's homedir for " +
-			"QUILT_PATH generation")
+		log.WithError(err).Fatalf("Failed to get user's homedir for "+
+			"%s generation", QuiltPathKey)
 	}
 
 	return filepath.Join(dir, ".quilt")
