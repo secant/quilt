@@ -14,8 +14,8 @@ type Node struct {
 
 // An Edge in the communication Graph.
 type Edge struct {
-	From string
-	To   string
+	From Node
+	To   Node
 }
 
 // A Graph represents permission to communicate across a series of Nodes.
@@ -72,8 +72,8 @@ func InitializeGraph(spec Stitch) (Graph, error) {
 func (g Graph) GetConnections() []Edge {
 	var res []Edge
 	for _, n := range g.getNodes() {
-		for _, edge := range n.Connections {
-			res = append(res, Edge{From: n.Name, To: edge.Name})
+		for _, neighbor := range n.Connections {
+			res = append(res, Edge{From: n, To: neighbor})
 		}
 	}
 	return res
