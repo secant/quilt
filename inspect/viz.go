@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 
 	"github.com/NetSys/quilt/stitch"
 )
@@ -33,20 +34,52 @@ func viz(configPath string, spec stitch.Stitch, graph stitch.Graph, outputFormat
 	graphviz(outputFormat, slug, dot)
 }
 
+var wkClust = make(map[string]bool)
+var msClust = make(map[string]bool)
+
 func makeGraphviz(graph stitch.Graph) string {
 	dotfile := "strict digraph {\n"
-
+	subgraphs := make(map[string]string)
 	for i, av := range graph.Availability {
-		dotfile += subGraph(i, av.Nodes()...)
+		id, body := subGraph(i, graph, av.Nodes()...)
+		subgraphs[id] = body
+	}
+
+	// Get masters first
+	for k, v := range subgraphs {
+		if msClust[k] {
+			dotfile += v
+			subgraphs[k] = ""
+		}
+	}
+
+	// Put rest of subgraphs
+	for _, v := range subgraphs {
+		dotfile += v
 	}
 
 	var lines []string
 	for _, edge := range graph.GetConnections() {
+		efn := edge.From.Name
+		efl := edge.From.Label
+		etn := edge.To.Name
+		etl := edge.To.Label
+		dir := ""
+		if strings.Contains(etl, "ms") {
+			efn = edge.To.Name
+			efl = edge.To.Label
+			etn = edge.From.Name
+			etl = edge.From.Label
+			dir = `[dir="back"]`
+		}
 		lines = append(lines,
 			fmt.Sprintf(
-				"    %s -> %s\n",
-				edge.From,
-				edge.To,
+				"    {%s [label=%q]} -> {%s [label=%q]} %s\n",
+				efn,
+				efl,
+				etn,
+				etl,
+				dir,
 			),
 		)
 	}
@@ -61,15 +94,44 @@ func makeGraphviz(graph stitch.Graph) string {
 	return dotfile
 }
 
-func subGraph(i int, labels ...string) string {
-	subgraph := fmt.Sprintf("    subgraph cluster_%d {\n", i)
+func subGraph(i int, graph stitch.Graph, labels ...string) (string, string) {
+	same := make(map[string][]string)
+	nodes := graph.Nodes
+	clust := fmt.Sprintf("cluster_%d", i)
+	subgraph := fmt.Sprintf("    subgraph %s {\n", clust)
 	str := ""
 	sort.Strings(labels)
 	for _, l := range labels {
+		if l == stitch.PublicInternetLabel {
+			return clust, ""
+		}
+		if strings.Contains(nodes[l].Label, "-ms") {
+			msClust[clust] = true
+		} else if strings.Contains(nodes[l].Label, "-wk") {
+			wkClust[clust] = true
+		}
+		same[nodes[l].Label] = append(same[nodes[l].Label], l)
 		str += l + "; "
 	}
-	subgraph += "        " + str + "\n    }\n"
-	return subgraph
+
+	sameRank := ""
+	for k := range same {
+		sameRank += genRank("same", same[k])
+	}
+	subgraph += "        " + str + "\n        color=white; \n" + sameRank + "    }\n"
+	return clust, subgraph
+}
+
+func genRank(rank string, nodes []string) string {
+	if len(nodes) == 0 {
+		return ""
+	}
+	str := fmt.Sprintf("        {rank = %s;", rank)
+	for _, l := range nodes {
+		str += fmt.Sprintf(" %s", l)
+	}
+	str += "}\n"
+	return str
 }
 
 // Graphviz generates a specification for the graphviz program that visualizes the
@@ -84,7 +146,7 @@ func graphviz(outputFormat string, slug string, dot string) {
 		rm := exec.Command("rm", slug+".dot")
 		rm.Run()
 	}()
-
+	fmt.Println(dot)
 	f.Write([]byte(dot))
 
 	// Dependencies:
