@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"golang.org/x/tools/go/vcs"
 	"os"
-	"os/user"
 	"path/filepath"
 	"text/scanner"
 
 	"github.com/NetSys/quilt/util"
 
 	log "github.com/Sirupsen/logrus"
+	homedir "github.com/mitchellh/go-homedir"
 
 	"github.com/spf13/afero"
 )
@@ -28,18 +28,17 @@ var create = func(repo *vcs.RepoRoot, dir string) error {
 // GetQuiltPath returns the user-defined QUILT_PATH, or the default absolute QUILT_PATH,
 // which is ~/.quilt if the user did not specify a QUILT_PATH.
 func GetQuiltPath() string {
-	quiltPath := os.Getenv("QUILT_PATH")
-	if quiltPath != "" {
+	if quiltPath := os.Getenv("QUILT_PATH"); quiltPath != "" {
 		return quiltPath
 	}
 
-	usr, err := user.Current()
+	dir, err := homedir.Dir()
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Failed to get user's homedir for " +
+			"QUILT_PATH generation")
 	}
 
-	quiltPath = filepath.Join(usr.HomeDir, ".quilt")
-	return quiltPath
+	return filepath.Join(dir, ".quilt")
 }
 
 // GetSpec takes in an import path repoName, and attempts to download the repository
