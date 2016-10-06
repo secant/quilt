@@ -39,6 +39,25 @@ func TestReach(t *testing.T) {
 	}
 }
 
+func TestReachPublic(t *testing.T) {
+	stc := `(label "a" (docker "ubuntu"))
+(label "b" (docker "ubuntu"))
+(label "c" (docker "ubuntu"))
+
+(connect 22 "a" "public")
+(connect 22 "public" "b")
+(connect 22 "b" "c")
+
+(invariant reach true "public" "b")
+(invariant reach true "public" "c")
+(invariant reach false "public" "a")
+(invariant reach false "b" "public")`
+	_, err := initSpec(stc)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestNeighbor(t *testing.T) {
 	stc := `(label "a" (docker "ubuntu"))
 (label "b" (docker "ubuntu"))
