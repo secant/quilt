@@ -1,18 +1,23 @@
 var image = "quilt/wordpress";
 
-exports.create = function(n, db, memcd) {
+function Wordpress(n, db, memcd) {
     var master = db.master;
     var rep = db.replicas;
-    var dks = new Docker(image)
+    var cns = new Container(image)
         .withEnv({
-            "MEMCACHED": memcd.children().join(","),
+            "MEMCACHED": memcd.memcd.children().join(","),
             "DB_MASTER": master.children().join(","),
             "DB_REPLICA": rep.children().join(","),
         })
         .replicate(n);
-    var wp = new Label("wp", dks);
-    connect(3306, wp, rep);
-    connect(3306, wp, master);
-    connect(11211, wp, memcd);
-    return wp;
+    this.wp = new Label("wp", cns);
+    this.wp.connect(3306, rep);
+    this.wp.connect(3306, master);
+    this.wp.connect(11211, memcd.memcd);
+
+    this.deploy = function(deployment) {
+        deployment.deploy(this.wp);
+    };
 }
+
+exports.Wordpress = Wordpress;

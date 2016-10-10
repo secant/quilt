@@ -4,17 +4,20 @@ var Mysql = require("github.com/NetSys/quilt/specs/mysql/mysql");
 var Haproxy = require("github.com/NetSys/quilt/specs/haproxy/haproxy");
 var Spark = require("github.com/NetSys/quilt/specs/spark/spark");
 
-var memcd = Memcached.create(3);
-var db = Mysql.create(2);
-var spark = Spark.create(1, 4); // 1 Master, 4 Workers
-var wp = Wordpress.create(4, db, memcd);
-var hap = Haproxy.create(2, wp);
+var memcd = new Memcached.Memcached(3);
+var db = new Mysql.Mysql(2);
+var spark = new Spark.Spark(1, 4); // 1 Master, 4 Workers
+var wp = new Wordpress.Wordpress(4, db, memcd);
+var hap = new Haproxy.Haproxy(2, wp.wp);
 
-connect(7077, spark.workers, db.master);
-connect(80, publicInternet, hap);
+spark.workers.connect(7077, db.master);
+hap.hap.connectFromPublic(80);
 
 // Infrastructure
-setNamespace("CHANGE_ME");
+var deployment = createDeployment({
+    nasmespace: "vivian-wp",
+    adminACL: ["local"],
+});
 
 var nWorker = 4;
 var baseMachine = new Machine({
@@ -22,8 +25,9 @@ var baseMachine = new Machine({
     region: "us-west-1",
     size: "m4.large",
     diskSize: 32,
-    keys: githubKeys("CHANGE_ME"),
+    keys: githubKeys("secant"),
 });
 
-deployWorkers(nWorker + 1, baseMachine);
-deployMasters(1, baseMachine);
+deployment.deploy(baseMachine.asMaster())
+    .deploy(baseMachine.asWorker().replicate(nWorker + 1))
+    .deploy([memcd, db, spark, wp, hap]);

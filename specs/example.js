@@ -1,9 +1,12 @@
+// Create a new deployment.
 // Using unique Namespaces will allow multiple Quilt instances to run on the
 // same cloud provider account without conflict.
-setNamespace("kklin");
+// Also defines the set of addresses that are allowed to access Quilt VMs.
+var deployment = createDeployment({
+    namespace: "CHANGE_ME",
+    adminACL: ["local"],
+});
 
-// Defines the set of addresses that are allowed to access Quilt VMs.
-setAdminACL(["local"]);
 
 // We will apply this configuration to each VM.
 var baseMachine = new Machine({
@@ -16,6 +19,6 @@ deployMasters(1, baseMachine);
 deployWorkers(2, baseMachine);
 
 // Create a Nginx Docker container, assigning it the label "web_tier".
-var webTierLabel = new Label("web_tier", [new Docker("nginx")]);
+var webTierLabel = new Label("web_tier", [new Container("nginx")]);
 
-connect(new Port(80), publicInternet, webTierLabel);
+webTierLabel.connectFromPublic(80);
