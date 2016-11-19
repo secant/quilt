@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/NetSys/quilt/cluster/amazon"
+	"github.com/NetSys/quilt/cluster/digitalocean"
 	"github.com/NetSys/quilt/cluster/google"
 	"github.com/NetSys/quilt/cluster/machine"
 	"github.com/NetSys/quilt/db"
@@ -20,6 +21,8 @@ func DefaultRegion(m db.Machine) db.Machine {
 	switch m.Provider {
 	case db.Amazon:
 		m.Region = amazon.DefaultRegion
+	case db.DigitalOcean:
+		m.Region = digitalocean.DefaultRegion
 	case db.Google:
 		m.Region = google.DefaultRegion
 	case db.Vagrant:

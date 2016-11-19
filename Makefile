@@ -5,6 +5,7 @@ LINE_LENGTH_EXCLUDE=./cluster/machine/amazon.go \
 		    ./cluster/machine/google.go \
 		    ./cluster/cloudcfg/template.go \
 		    ./cluster/amazon/mock_client.go \
+		    ./cluster/digitalocean/mock_client.go \
 		    ./cluster/google/mock_client_test.go \
 		    ./minion/network/link_test.go \
 		    ./minion/pb/pb.pb.go \

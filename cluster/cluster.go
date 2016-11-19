@@ -6,6 +6,7 @@ import (
 
 	"github.com/NetSys/quilt/cluster/acl"
 	"github.com/NetSys/quilt/cluster/amazon"
+	"github.com/NetSys/quilt/cluster/digitalocean"
 	"github.com/NetSys/quilt/cluster/foreman"
 	"github.com/NetSys/quilt/cluster/google"
 	"github.com/NetSys/quilt/cluster/machine"
@@ -29,7 +30,7 @@ type provider interface {
 }
 
 // Store the providers in a variable so we can change it in the tests
-var allProviders = []db.Provider{db.Amazon, db.Google, db.Vagrant}
+var allProviders = []db.Provider{db.Amazon, db.DigitalOcean, db.Google, db.Vagrant}
 
 type cluster struct {
 	namespace string
@@ -433,6 +434,8 @@ func newProviderImpl(p db.Provider, namespace string) (provider, error) {
 		return amazon.New(namespace)
 	case db.Google:
 		return google.New(namespace)
+	case db.DigitalOcean:
+		return digitalocean.New(namespace)
 	case db.Vagrant:
 		return vagrant.New(namespace)
 	default:

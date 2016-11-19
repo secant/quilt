@@ -24,3 +24,4 @@ parsers:
 ignore:
     - "specs"
     - "minion/ovsdb/ovsdb_mock.go"
+    - "cluster/digitalocean/mock_client.go"
