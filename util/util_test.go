@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 )
 
 func TestToTar(t *testing.T) {
@@ -85,4 +86,31 @@ func ed(a, b []string, exp int) string {
 		return fmt.Sprintf("Distance(%s, %s) = %v, expected %v", a, b, ed, exp)
 	}
 	return ""
+}
+
+func TestWaitFor(t *testing.T) {
+	Sleep = func(t time.Duration) {}
+
+	calls := 0
+	callThreeTimes := func() bool {
+		calls++
+		if calls == 3 {
+			return true
+		}
+		return false
+	}
+	err := WaitFor(callThreeTimes, 1*time.Second, 5*time.Second)
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err.Error())
+	}
+	if calls != 3 {
+		t.Errorf("Incorrect number of calls to predicate: %d", calls)
+	}
+
+	err = WaitFor(func() bool {
+		return false
+	}, 1*time.Second, 300*time.Millisecond)
+	if err.Error() != "timed out" {
+		t.Errorf("Expected waitFor to timeout")
+	}
 }

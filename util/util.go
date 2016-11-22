@@ -3,14 +3,19 @@ package util
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/afero"
 )
+
+// Sleep stores time.Sleep so we can mock it out for unit tests.
+var Sleep = time.Sleep
 
 func httpRequest(url string) (string, error) {
 	resp, err := http.Get(url)
@@ -143,4 +148,19 @@ func StrStrMapEqual(x, y map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// WaitFor waits until `pred` is satisfied, or `timeout` Duration has passed, checking
+// at every `interval`.
+func WaitFor(pred func() bool, interval time.Duration, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if pred() {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return errors.New("timed out")
+		}
+		Sleep(interval)
+	}
 }

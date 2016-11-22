@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -34,33 +33,6 @@ func TestCmdExec(t *testing.T) {
 	}
 	if stderr != expStderr {
 		t.Errorf("Stderr didn't match: expected %s, got %s", expStderr, stderr)
-	}
-}
-
-func TestWaitFor(t *testing.T) {
-	sleep = func(t time.Duration) {}
-
-	calls := 0
-	callThreeTimes := func() bool {
-		calls++
-		if calls == 3 {
-			return true
-		}
-		return false
-	}
-	err := waitFor(callThreeTimes, 5)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err.Error())
-	}
-	if calls != 3 {
-		t.Errorf("Incorrect number of calls to predicate: %d", calls)
-	}
-
-	err = waitFor(func() bool {
-		return false
-	}, 300*time.Millisecond)
-	if err.Error() != "timed out" {
-		t.Errorf("Expected waitFor to timeout")
 	}
 }
 
