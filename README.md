@@ -122,8 +122,8 @@ Install Go with your package manager or by following the directions on
 Setup your `GOPATH` and `PATH` environment variables in your `~/.bashrc` file.
 E.g.:
 
-    export GOPATH=’~/gowork’
-    export PATH=’$PATH:$GOPATH/bin’
+    export GOPATH='~/gowork'
+    export PATH='$PATH:$GOPATH/bin'
 
 #### Download Quilt
 Download and install Quilt and its dependencies using `go get`
